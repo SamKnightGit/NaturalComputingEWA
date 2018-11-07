@@ -1,13 +1,12 @@
 import numpy as np
 import random
-from .ewo_exceptions import *
+from src.ewo_exceptions import *
 
 globalMinimum = 0.0
 
 
 def eval_worm(worm: np.array, func: str="sphere"):
     if func == "sphere":
-        print(np.sum(np.square(worm)))
         return np.sum(np.square(worm))
     elif func == "eggholder":
         return -(worm[1] + 47) * np.sin(np.sqrt(worm[1] + 0.5*worm[0] + 47)) - \
@@ -54,7 +53,7 @@ def roulette_wheel_2(worms: np.array, fitness_func: str):
         sum_fitness = roulette_array[0]
         while sample > sum_fitness:
             fitness_index += 1
-            sum_fitness += roulette_array[1]
+            sum_fitness += roulette_array[fitness_index]
         chosen_worm_indices.append(fitness_index)
 
     return worms[chosen_worm_indices[0]], worms[chosen_worm_indices[1]]
@@ -67,7 +66,7 @@ def reproduction1(worm: np.array, dim_bounds: np.array, sim_factor: float):
     :param np.array dim_bounds: Dimensional bounds represented by max-min tuples.
     :param float sim_factor: Parameter determining how far child will spawn from parent.
     """
-    child_worm = np.zeros((worm.shape[0], worm.shape[1]))
+    child_worm = np.zeros((worm.shape[0]))
     for dim in range(len(worm)):
         child_worm[dim] = dim_bounds[dim][1] + dim_bounds[dim][0] - sim_factor * worm[dim]
 
@@ -171,18 +170,11 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
 
             # Scale the proportion factor
             prop_factor *= cool_factor
-
-
-
-
-
-
-
+        print(worms[0])
 
     except (MinimumReached, BadDimension, FunctionNotDefined) as error:
         print(error)
         pass
 
-
-if __name__ == '__main__':
-    EWO(100, 20, 1, np.array([[-10, 10], [-10, 10]]))
+if __name__ == "__main__":
+    EWO(100, 20, 100, np.array([[-10, 10], [-10, 10]]))
