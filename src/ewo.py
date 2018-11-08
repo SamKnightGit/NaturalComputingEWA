@@ -7,10 +7,10 @@ globalMinimum = 0.0
 
 def eval_worm(worm: np.array, func: str="sphere"):
     if func == "sphere":
-        return np.sum(np.square(worm))
-    elif func == "eggholder":
-        return -(worm[1] + 47) * np.sin(np.sqrt(worm[1] + 0.5*worm[0] + 47)) - \
-                worm[0]*np.sin(np.sqrt(worm[0] - (worm[1] + 47)))
+        return np.sum(np.square(worm[0]))
+    elif func == "easom":
+        return -np.cos(worm[0])*np.cos(worm[1])* \
+               np.exp(-np.square(worm[0] - np.pi)-np.square(worm[1] - np.pi))
     elif func == "beale":
         return np.square(1.5 - worm[0] + worm[0]*worm[1]) + \
                 np.square(2.25 - worm[0] + worm[0] * np.square(worm[1])) + \
@@ -41,10 +41,13 @@ def roulette_wheel_2(worms: np.array, fitness_func: str):
     roulette_array = np.zeros(worms.shape[0])
     fitness_sum = 0.0
     for worm_index in range(worms.shape[0]):
-        worm_fitness = eval_worm(worms[worm_index], fitness_func)
+        worm_fitness = 1 / (1 + eval_worm(worms[worm_index], fitness_func))
         fitness_sum += worm_fitness
         roulette_array[worm_index] = worm_fitness
-    roulette_array / fitness_sum
+    roulette_array /= fitness_sum
+
+    assert np.isclose(np.sum(roulette_array), 1), \
+        roulette_array
 
     chosen_worm_indices = []
     for _ in range(0,2):
@@ -59,16 +62,16 @@ def roulette_wheel_2(worms: np.array, fitness_func: str):
     return worms[chosen_worm_indices[0]], worms[chosen_worm_indices[1]]
 
 
-def reproduction1(worm: np.array, dim_bounds: np.array, sim_factor: float):
+def reproduction1(worm: np.array, dim_bounds: (int, [float]), sim_factor: float):
     """
 
     :param np.array worm: Worm reproducing by method 1.
-    :param np.array dim_bounds: Dimensional bounds represented by max-min tuples.
+    :param (int, [float]) dim_bounds: Dimensional bounds represented by max-min tuple.
     :param float sim_factor: Parameter determining how far child will spawn from parent.
     """
     child_worm = np.zeros((worm.shape[0]))
     for dim in range(len(worm)):
-        child_worm[dim] = dim_bounds[dim][1] + dim_bounds[dim][0] - sim_factor * worm[dim]
+        child_worm[dim] = dim_bounds[1][1] + dim_bounds[1][0] - sim_factor * worm[dim]
 
     return child_worm
 
@@ -92,8 +95,8 @@ def reproduction2(worms: np.array, fitness_func: str):
         else:
             intermediate_child1[dim] = parent2[dim]
             intermediate_child2[dim] = parent2[dim]
-    fitness1 = eval_worm(intermediate_child1, fitness_func)
-    fitness2 = eval_worm(intermediate_child2, fitness_func)
+    fitness1 = 1 / (1 + eval_worm(intermediate_child1, fitness_func))
+    fitness2 = 1 / (1 + eval_worm(intermediate_child2, fitness_func))
     weight1 = fitness2 / (fitness1 + fitness2)
     weight2 = fitness1 / (fitness1 + fitness2)
 
@@ -132,23 +135,23 @@ def cauchy_mutate(worm: np.array, worms: np.array):
 
 
 def EWO(worm_population: int, worms_kept: int, max_generations: int,
-        dim_bounds: np.array, fitness_func: str="sphere", sim_factor: float=0.95, cool_factor: float=0.9):
+        dim_bounds: (int, [float]), fitness_func: str="sphere", sim_factor: float=0.98, cool_factor: float=0.9):
     """
 
     :param int worm_population: Total number of worms in the population
     :param int worms_kept: The number of worms that do not undergo reproduction 2,
     and number that undergo cauchy mutation.
     :param int max_generations: Maximum number of worm generations before algorithm ends.
-    :param np.array dim_bounds: Array of tuples representing (min, max) values of each dimension
+    :param (int, (float, float)) dim_bounds: Integer representing dimensions and (min, max) values of dimensions
     :param float sim_factor: Similarity factor for worm reproduction
     :param float cool_factor: Cooling factor
     :return:
     """
-    worms = np.zeros((worm_population, dim_bounds.shape[0]))
+    worms = np.zeros((worm_population, dim_bounds[0]))
     prop_factor = 1.0
     for worm_index in range(worms.shape[0]):
-        for dimension in range(dim_bounds.shape[0]):
-            worms[worm_index][dimension] = random.uniform(dim_bounds[dimension][0], dim_bounds[dimension][1])
+        for dimension in range(dim_bounds[0]):
+            worms[worm_index][dimension] = random.uniform(dim_bounds[1][0], dim_bounds[1][1])
     try:
         for generation in range(0, max_generations):
             for worm in worms:
@@ -170,11 +173,39 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
 
             # Scale the proportion factor
             prop_factor *= cool_factor
-        print(worms[0])
+        return worms[0]
 
     except (MinimumReached, BadDimension, FunctionNotDefined) as error:
         print(error)
         pass
 
 if __name__ == "__main__":
-    EWO(100, 20, 100, np.array([[-10, 10], [-10, 10]]))
+    results = {
+        "sphere": [],
+        "easom": [],
+        "beale": []
+    }
+
+    sphere_dims = (30, (-5.12, 5.12))
+    easom_dims = (2, (-100, 100))
+    beale_dims =  (2, (-4.5, 4.5))
+
+    for x in range(0, 500):
+        results["sphere"].append(
+            EWO(50, 10, 50, sphere_dims, fitness_func="sphere")
+        )
+        print(results["sphere"][x])
+        results["easom"].append(
+            EWO(50, 10, 50, easom_dims, fitness_func="easom")
+        )
+        print(results["easom"][x])
+        results["beale"].append(
+            EWO(50, 10, 50, beale_dims, fitness_func="beale")
+        )
+        print(results["beale"][x])
+
+    for key in results:
+        results[key].sort()
+
+    print(results)
+
