@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import time
 from src.ewo_exceptions import *
 
 globalMinimum = 0.0
@@ -196,9 +197,10 @@ if __name__ == "__main__":
 
     sphere_dims = (30, (-5.12, 5.12))
     easom_dims = (2, (-100, 100))
-    beale_dims =  (2, (-4.5, 4.5))
+    beale_dims = (2, (-4.5, 4.5))
 
-    for x in range(0, 500):
+    start_time = time.time_ns()
+    for x in range(0, 2):
         results["sphere"].append(
             EWO(50, 10, 50, sphere_dims, fitness_func="sphere")
         )
@@ -215,5 +217,7 @@ if __name__ == "__main__":
     for key in results:
         results[key].sort()
 
+    end_time = time.time_ns()
     print(results)
+    print("Took: %.3fs" % ((end_time - start_time) / 1e9))
 
