@@ -4,6 +4,13 @@ from src.ewo_exceptions import *
 
 globalMinimum = 0.0
 
+def set_minimum(func: str="sphere"):
+    if func == "sphere":
+        globalMinimum = 0.0
+    if func == "easom":
+        globalMinimum = -1.0
+    if func == "beale":
+        globalMinimum = 0.0
 
 def eval_worm(worm: np.array, func: str="sphere"):
     if func == "sphere":
@@ -147,6 +154,7 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
     :param float cool_factor: Cooling factor
     :return:
     """
+    set_minimum(fitness_func)
     worms = np.zeros((worm_population, dim_bounds[0]))
     prop_factor = 1.0
     for worm_index in range(worms.shape[0]):
@@ -173,7 +181,7 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
 
             # Scale the proportion factor
             prop_factor *= cool_factor
-        return worms[0]
+        return eval_worm(worms[0], fitness_func)
 
     except (MinimumReached, BadDimension, FunctionNotDefined) as error:
         print(error)
