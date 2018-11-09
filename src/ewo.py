@@ -8,12 +8,13 @@ from joblib import Parallel, delayed
 from src.ewo_exceptions import *
 from src.util import *
 
-global_minimum = 0.0
-NUM_ITERATIONS = 2
+globalMinimum = 0.0
+NUM_ITERATIONS = 500
 RESULTS_FILE_PATH = '../results.pkl'
 
 
 def set_minimum(func: str = "sphere"):
+    global globalMinimum
     if func == "sphere":
         globalMinimum = 0.0
     if func == "easom":
@@ -173,7 +174,7 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
     try:
         for generation in range(0, max_generations):
             for worm in worms:
-                if eval_worm(worm) == global_minimum:
+                if eval_worm(worm) == globalMinimum:
                     raise MinimumReached
             worms = fitness_sort(worms)
             for worm_index in range(len(worms)):
@@ -219,7 +220,7 @@ if __name__ == "__main__":
     easom_dims = (2, (-100, 100))
     beale_dims = (2, (-4.5, 4.5))
 
-    num_cores = multiprocessing.cpu_count()
+    num_cores = 10
 
     sphere_results = Parallel(n_jobs=num_cores)(delayed(run_sphere)() for _ in range(NUM_ITERATIONS))
     easom_results = Parallel(n_jobs=num_cores)(delayed(run_easom)() for _ in range(NUM_ITERATIONS))
