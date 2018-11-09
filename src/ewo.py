@@ -1,11 +1,19 @@
-import numpy as np
+import multiprocessing
 import random
 import time
+
+import numpy as np
+from joblib import Parallel, delayed
+
 from src.ewo_exceptions import *
+from src.util import *
 
-globalMinimum = 0.0
+global_minimum = 0.0
+NUM_ITERATIONS = 2
+RESULTS_FILE_PATH = '../results.pkl'
 
-def set_minimum(func: str="sphere"):
+
+def set_minimum(func: str = "sphere"):
     if func == "sphere":
         globalMinimum = 0.0
     if func == "easom":
@@ -13,21 +21,22 @@ def set_minimum(func: str="sphere"):
     if func == "beale":
         globalMinimum = 0.0
 
-def eval_worm(worm: np.array, func: str="sphere"):
+
+def eval_worm(worm: np.array, func: str = "sphere"):
     if func == "sphere":
         return np.sum(np.square(worm[0]))
     elif func == "easom":
-        return -np.cos(worm[0])*np.cos(worm[1])* \
-               np.exp(-np.square(worm[0] - np.pi)-np.square(worm[1] - np.pi))
+        return -np.cos(worm[0]) * np.cos(worm[1]) * \
+               np.exp(-np.square(worm[0] - np.pi) - np.square(worm[1] - np.pi))
     elif func == "beale":
-        return np.square(1.5 - worm[0] + worm[0]*worm[1]) + \
-                np.square(2.25 - worm[0] + worm[0] * np.square(worm[1])) + \
-                np.square(2.625 - worm[0] + worm[0] * np.power(worm[1], 3))
+        return np.square(1.5 - worm[0] + worm[0] * worm[1]) + \
+               np.square(2.25 - worm[0] + worm[0] * np.square(worm[1])) + \
+               np.square(2.625 - worm[0] + worm[0] * np.power(worm[1], 3))
     else:
         raise FunctionNotDefined
 
 
-def fitness_sort(worms: np.array, func: str="sphere"):
+def fitness_sort(worms: np.array, func: str = "sphere"):
     """
     Sorts the worm array passed in based on the evaluation function.
 
@@ -58,7 +67,7 @@ def roulette_wheel_2(worms: np.array, fitness_func: str):
         roulette_array
 
     chosen_worm_indices = []
-    for _ in range(0,2):
+    for _ in range(0, 2):
         sample = np.random.ranf()
         fitness_index = 0
         sum_fitness = roulette_array[0]
@@ -143,7 +152,7 @@ def cauchy_mutate(worm: np.array, worms: np.array):
 
 
 def EWO(worm_population: int, worms_kept: int, max_generations: int,
-        dim_bounds: (int, [float]), fitness_func: str="sphere", sim_factor: float=0.98, cool_factor: float=0.9):
+        dim_bounds: (int, [float]), fitness_func: str = "sphere", sim_factor: float = 0.98, cool_factor: float = 0.9):
     """
 
     :param int worm_population: Total number of worms in the population
@@ -164,7 +173,7 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
     try:
         for generation in range(0, max_generations):
             for worm in worms:
-                if eval_worm(worm) == globalMinimum:
+                if eval_worm(worm) == global_minimum:
                     raise MinimumReached
             worms = fitness_sort(worms)
             for worm_index in range(len(worms)):
@@ -188,31 +197,39 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
         print(error)
         pass
 
-if __name__ == "__main__":
-    results = {
-        "sphere": [],
-        "easom": [],
-        "beale": []
-    }
 
+def run_sphere():
     sphere_dims = (30, (-5.12, 5.12))
+    return EWO(50, 10, 50, sphere_dims, fitness_func="sphere")
+
+
+def run_easom():
+    easom_dims = (2, (-100, 100))
+    return EWO(50, 10, 50, easom_dims, fitness_func="easom")
+
+
+def run_beale():
+    beale_dims = (2, (-4.5, 4.5))
+    return EWO(50, 10, 50, beale_dims, fitness_func="beale")
+
+
+if __name__ == "__main__":
+
+    start_time = time.time_ns()
     easom_dims = (2, (-100, 100))
     beale_dims = (2, (-4.5, 4.5))
 
-    start_time = time.time_ns()
-    for x in range(0, 2):
-        results["sphere"].append(
-            EWO(50, 10, 50, sphere_dims, fitness_func="sphere")
-        )
-        print(results["sphere"][x])
-        results["easom"].append(
-            EWO(50, 10, 50, easom_dims, fitness_func="easom")
-        )
-        print(results["easom"][x])
-        results["beale"].append(
-            EWO(50, 10, 50, beale_dims, fitness_func="beale")
-        )
-        print(results["beale"][x])
+    num_cores = multiprocessing.cpu_count()
+
+    sphere_results = Parallel(n_jobs=num_cores)(delayed(run_sphere)() for _ in range(NUM_ITERATIONS))
+    easom_results = Parallel(n_jobs=num_cores)(delayed(run_easom)() for _ in range(NUM_ITERATIONS))
+    beale_results = Parallel(n_jobs=num_cores)(delayed(run_beale)() for _ in range(NUM_ITERATIONS))
+
+    results = {
+        'sphere': sphere_results,
+        'easom': easom_results,
+        'beale_results': beale_results
+    }
 
     for key in results:
         results[key].sort()
@@ -221,3 +238,5 @@ if __name__ == "__main__":
     print(results)
     print("Took: %.3fs" % ((end_time - start_time) / 1e9))
 
+    # save result dict to file (using python pickle lib)
+    save_result(results)
