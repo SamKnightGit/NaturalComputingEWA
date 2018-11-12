@@ -1,7 +1,7 @@
 import multiprocessing
-from pprint import pprint
 import random
 import time
+from pprint import pprint
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -46,7 +46,7 @@ def fitness_sort(worms: np.array, func: str = "sphere"):
     """
     intermediary_list = list(worms)
     intermediary_list.sort(key=lambda worm: np.abs(eval_worm(worm, func) - globalMinimum))
-    print([(x, np.abs(globalMinimum - eval_worm(x, func))) for x in intermediary_list])
+    # print([(x, np.abs(globalMinimum - eval_worm(x, func))) for x in intermediary_list])
     # print("sorted")
     # print(intermediary_list)
     return np.array(intermediary_list)
@@ -198,7 +198,7 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
             # Scale the proportion factor
             prop_factor *= cool_factor
         # print(worms[0])
-        return eval_worm(worms[0], fitness_func)
+        return worms[0], eval_worm(worms[0], fitness_func)
 
     except (MinimumReached, BadDimension, FunctionNotDefined) as error:
         print(error)
@@ -212,33 +212,37 @@ def run_sphere():
 
 def run_easom():
     easom_dims = (2, (-100, 100))
-    return EWO(50, 2, 50, easom_dims, fitness_func="easom")
+    return EWO(50, 10, 50, easom_dims, fitness_func="easom")
 
 
 def run_beale():
     beale_dims = (2, (-4.5, 4.5))
-    return EWO(50, 2, 50, beale_dims, fitness_func="beale")
+    return EWO(50, 10, 50, beale_dims, fitness_func="beale")
 
 
+input_worms = []
 if __name__ == "__main__":
 
     start_time = time.time_ns()
     easom_dims = (2, (-100, 100))
     beale_dims = (2, (-4.5, 4.5))
 
-    num_cores = multiprocessing.cpu_count()
+    num_cores = multiprocessing.cpu_count() - 2
 
     sphere_results = Parallel(n_jobs=num_cores)(delayed(run_sphere)() for _ in range(NUM_ITERATIONS))
     easom_results = Parallel(n_jobs=num_cores)(delayed(run_easom)() for _ in range(NUM_ITERATIONS))
     beale_results = Parallel(n_jobs=num_cores)(delayed(run_beale)() for _ in range(NUM_ITERATIONS))
+
     results = {
         'sphere': sphere_results,
         'easom': easom_results,
         'beale': beale_results
     }
 
+    # each entry in results is a list of tuples (input, output)
     for key in results:
-        results[key].sort()
+        # sort lists by second value of tuples (output)
+        results[key].sort(key=lambda x: x[1])
 
     end_time = time.time_ns()
     pprint(results)
