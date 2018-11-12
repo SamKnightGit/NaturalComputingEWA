@@ -1,4 +1,5 @@
 import multiprocessing
+from pprint import pprint
 import random
 import time
 
@@ -44,7 +45,10 @@ def fitness_sort(worms: np.array, func: str = "sphere"):
     :param np.array worm: array of worms.
     """
     intermediary_list = list(worms)
-    intermediary_list.sort(key=lambda worm: eval_worm(worm, func))
+    intermediary_list.sort(key=lambda worm: np.abs(eval_worm(worm, func) - globalMinimum))
+    print([(x, np.abs(globalMinimum - eval_worm(x, func))) for x in intermediary_list])
+    # print("sorted")
+    # print(intermediary_list)
     return np.array(intermediary_list)
 
 
@@ -59,7 +63,7 @@ def roulette_wheel_2(worms: np.array, fitness_func: str):
     roulette_array = np.zeros(worms.shape[0])
     fitness_sum = 0.0
     for worm_index in range(worms.shape[0]):
-        worm_fitness = 1 / (1 + eval_worm(worms[worm_index], fitness_func))
+        worm_fitness = 1 / (1 + np.abs(globalMinimum - eval_worm(worms[worm_index], fitness_func)))
         fitness_sum += worm_fitness
         roulette_array[worm_index] = worm_fitness
     roulette_array /= fitness_sum
@@ -176,7 +180,7 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
             for worm in worms:
                 if eval_worm(worm) == globalMinimum:
                     raise MinimumReached
-            worms = fitness_sort(worms)
+            worms = fitness_sort(worms, fitness_func)
             for worm_index in range(len(worms)):
                 this_worm = worms[worm_index]
                 child_worm1 = reproduction1(this_worm, dim_bounds, sim_factor)
@@ -186,12 +190,14 @@ def EWO(worm_population: int, worms_kept: int, max_generations: int,
                     child_worm2 = random_other_worm(this_worm, worm_index)
                 worms[worm_index] = prop_factor * child_worm1 + (1 - prop_factor) * child_worm2
 
+            worms = fitness_sort(worms, fitness_func)
             # Cauchy mutation of worms
             for worm_index in range(worms_kept, len(worms)):
                 worms[worm_index] = cauchy_mutate(worms[worm_index], worms)
 
             # Scale the proportion factor
             prop_factor *= cool_factor
+        # print(worms[0])
         return eval_worm(worms[0], fitness_func)
 
     except (MinimumReached, BadDimension, FunctionNotDefined) as error:
@@ -206,12 +212,12 @@ def run_sphere():
 
 def run_easom():
     easom_dims = (2, (-100, 100))
-    return EWO(50, 10, 50, easom_dims, fitness_func="easom")
+    return EWO(50, 2, 50, easom_dims, fitness_func="easom")
 
 
 def run_beale():
     beale_dims = (2, (-4.5, 4.5))
-    return EWO(50, 10, 50, beale_dims, fitness_func="beale")
+    return EWO(50, 2, 50, beale_dims, fitness_func="beale")
 
 
 if __name__ == "__main__":
@@ -220,23 +226,22 @@ if __name__ == "__main__":
     easom_dims = (2, (-100, 100))
     beale_dims = (2, (-4.5, 4.5))
 
-    num_cores = 10
+    num_cores = multiprocessing.cpu_count()
 
     sphere_results = Parallel(n_jobs=num_cores)(delayed(run_sphere)() for _ in range(NUM_ITERATIONS))
     easom_results = Parallel(n_jobs=num_cores)(delayed(run_easom)() for _ in range(NUM_ITERATIONS))
     beale_results = Parallel(n_jobs=num_cores)(delayed(run_beale)() for _ in range(NUM_ITERATIONS))
-
     results = {
         'sphere': sphere_results,
         'easom': easom_results,
-        'beale_results': beale_results
+        'beale': beale_results
     }
 
     for key in results:
         results[key].sort()
 
     end_time = time.time_ns()
-    print(results)
+    pprint(results)
     print("Took: %.3fs" % ((end_time - start_time) / 1e9))
 
     # save result dict to file (using python pickle lib)
